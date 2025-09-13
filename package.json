@@ -1,0 +1,28 @@
+{
+  "name": "discourse-onebox",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "build": "tsc",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "destroy": "cdk destroy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "aws-cdk-lib": "^2.214.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "aws-cdk": "^2.1029.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}

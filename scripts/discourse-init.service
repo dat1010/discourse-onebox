@@ -1,0 +1,18 @@
+[Unit]
+Description=Ensure Discourse container is running after boot
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+ExecStart=/bin/bash -lc 'if [ -x /usr/bin/docker ] && [ -d /var/discourse ]; then \
+  cd /var/discourse; \
+  /usr/bin/docker ps --format "{{.Names}}" | grep -q "^app$" || { \
+    if [ -f containers/app.yml ]; then ./launcher start app; fi; \
+  }; \
+fi'
+
+[Install]
+WantedBy=multi-user.target

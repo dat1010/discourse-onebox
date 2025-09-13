@@ -1,0 +1,228 @@
+{
+ "Resources": {
+  "DiscourseSg43DE9EDA": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Allow HTTP/HTTPS (and SSH if desired)",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "from 0.0.0.0/0:80",
+      "FromPort": 80,
+      "IpProtocol": "tcp",
+      "ToPort": 80
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "from 0.0.0.0/0:443",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "from 0.0.0.0/0:22",
+      "FromPort": 22,
+      "IpProtocol": "tcp",
+      "ToPort": 22
+     }
+    ],
+    "VpcId": "vpc-23c3b159"
+   },
+   "Metadata": {
+    "aws:cdk:path": "DiscourseOneBoxStack/DiscourseSg/Resource"
+   }
+  },
+  "DiscourseInstanceRoleA89BC33E": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonSSMManagedInstanceCore"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "DiscourseOneBoxStack/DiscourseInstanceRole/Resource"
+   }
+  },
+  "DiscourseInstanceInstanceProfile25ADECAF": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "DiscourseInstanceRoleA89BC33E"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "DiscourseOneBoxStack/DiscourseInstance/InstanceProfile"
+   }
+  },
+  "DiscourseInstance915AB0F1": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "us-east-1a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/xvda",
+      "Ebs": {
+       "DeleteOnTermination": false,
+       "Encrypted": true,
+       "VolumeSize": 40
+      }
+     }
+    ],
+    "IamInstanceProfile": {
+     "Ref": "DiscourseInstanceInstanceProfile25ADECAF"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceType": "t3a.small",
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "DiscourseSg43DE9EDA",
+       "GroupId"
+      ]
+     }
+    ],
+    "SubnetId": "subnet-e7062ac9",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "DiscourseOneBoxStack/DiscourseInstance"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": "#!/bin/bash\nset -euxo pipefail\nsudo dnf -y update || true\nsudo dnf -y install docker git\nsudo systemctl enable --now docker\nsudo usermod -aG docker ec2-user || true\nif ! swapon --show | grep -q /swapfile; then sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo \"/swapfile swap swap defaults 0 0\" | sudo tee -a /etc/fstab; fi\nsudo mkdir -p /var/discourse\nif [ ! -d /var/discourse/.git ]; then sudo git clone https://github.com/discourse/discourse_docker.git /var/discourse; fi\nsudo chown -R ec2-user:ec2-user /var/discourse\nsudo tee /etc/systemd/system/discourse-init.service > /dev/null <<'UNIT'\n[Unit]\nDescription=Ensure Discourse container is running after boot\nAfter=network-online.target docker.service\nWants=network-online.target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nUser=root\nExecStart=/bin/bash -lc 'if [ -x /usr/bin/docker ] && [ -d /var/discourse ]; then \\\n  cd /var/discourse; \\\n  /usr/bin/docker ps --format \"{{.Names}}\" | grep -q \"^app$\" || { \\\n    if [ -f containers/app.yml ]; then ./launcher start app; fi; \\\n  }; \\\nfi'\n\n[Install]\nWantedBy=multi-user.target\n\nUNIT\nsudo systemctl daemon-reload\necho \"UserData done. SSH in and run: sudo -s; cd /var/discourse; ./discourse-setup\""
+    }
+   },
+   "DependsOn": [
+    "DiscourseInstanceRoleA89BC33E"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "DiscourseOneBoxStack/DiscourseInstance/Resource"
+   }
+  },
+  "DiscourseEip": {
+   "Type": "AWS::EC2::EIP",
+   "Properties": {
+    "Domain": "vpc"
+   },
+   "Metadata": {
+    "aws:cdk:path": "DiscourseOneBoxStack/DiscourseEip"
+   }
+  },
+  "EipAssoc": {
+   "Type": "AWS::EC2::EIPAssociation",
+   "Properties": {
+    "EIP": {
+     "Ref": "DiscourseEip"
+    },
+    "InstanceId": {
+     "Ref": "DiscourseInstance915AB0F1"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "DiscourseOneBoxStack/EipAssoc"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WLSwrCMBCGz+I+HWsQXIuIdGVpDyAxncL0kZRMYpGQu0vVgq6+/ylB7vaQb9TMmW76bKA7xNor3YsK2QanUaiZbxG1hFijDo788+JsmMSpNf9BYdgro3FpfvW5KL84MltNypM1SZAaIVZ2eG9Wrr/S2ZYGTGkJS+XUiB7dYq7BT8EnYWyD0PH2ISUcIN90TJS5YDyNCNWHLxtWw8rfAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "DiscourseOneBoxStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter": {
+   "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+   "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
+  },
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Outputs": {
+  "InstanceId": {
+   "Value": {
+    "Ref": "DiscourseInstance915AB0F1"
+   }
+  },
+  "PublicIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "DiscourseInstance915AB0F1",
+     "PublicIp"
+    ]
+   }
+  },
+  "ElasticIp": {
+   "Value": {
+    "Ref": "DiscourseEip"
+   }
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

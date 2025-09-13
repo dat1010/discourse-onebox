@@ -1,0 +1,21 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "42db9f9360d4f3878278da07a80d740e1cd63873de22f7623738a45dc2e1ef18": {
+      "displayName": "DiscourseOneBoxStack Template",
+      "source": {
+        "path": "DiscourseOneBoxStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "069597727371-us-east-1-c04e133d": {
+          "bucketName": "cdk-hnb659fds-assets-069597727371-us-east-1",
+          "objectKey": "42db9f9360d4f3878278da07a80d740e1cd63873de22f7623738a45dc2e1ef18.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::069597727371:role/cdk-hnb659fds-file-publishing-role-069597727371-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
